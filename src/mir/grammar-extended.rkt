@@ -6,7 +6,7 @@
 
 (define-extended-language formality-mir-extended formality-mir
   ;; Typing context storing bindings from locals to types and `CrateDecls`.
-  (Γ ::= (CrateDecls VarIds_∀ (Tys -> Ty where WhereClauses) LocalsAndBlocks))
+  (Γ ::= (CrateDecls VarIds_∀ (Tys -> Ty where WhereClauses) VarIds_∃ LocalsAndBlocks))
 
   ;; MaybeVariantId -- either a variant-id or nothing
   (MaybeVariantId ::= () (VariantId))
@@ -61,7 +61,7 @@
   ;; Returns the `MirBody` from the environment Γ
   locals-and-blocks-of-Γ : Γ -> LocalsAndBlocks
 
-  [(locals-and-blocks-of-Γ (_ _ _ LocalsAndBlocks)) LocalsAndBlocks]
+  [(locals-and-blocks-of-Γ (_ _ _ _ LocalsAndBlocks)) LocalsAndBlocks]
   )
 
 (define-metafunction formality-mir-extended
@@ -84,7 +84,7 @@
 
 (define-metafunction formality-mir-extended
   ;; Returns the `CrateDecls` from the environment Γ
-  crate-decls-of-Γ : Γ -> MirBody
+  crate-decls-of-Γ : Γ -> CrateDecls
 
-  [(crate-decls-of-Γ (CrateDecls _ _ _)) CrateDecls]
+  [(crate-decls-of-Γ (CrateDecls _ _ _ _)) CrateDecls]
   )
