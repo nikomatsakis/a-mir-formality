@@ -254,15 +254,14 @@ impl Display for ConstExpr {
                 f.write_str(")")
             }
             ConstExpr::Block(block) => {
-                f.write_char('{')?;
-                if !block.stmts.is_empty() {
-                    writeln!(f)?;
-                    for stmt in &block.stmts {
-                        stmt.fmt_pretty(f, 1)?;
-                        writeln!(f)?;
-                    }
+                // Labeled blocks need extra braces to be valid const expressions
+                if block.label.is_some() {
+                    f.write_char('{')?;
+                    block.fmt_pretty(f, 0)?;
+                    f.write_char('}')
+                } else {
+                    block.fmt_pretty(f, 0)
                 }
-                f.write_char('}')
             }
         }
     }
