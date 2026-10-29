@@ -229,6 +229,13 @@ judgment_fn! {
         debug(global, cfn, scope, target, expr)
 
         (
+            (let expr = Expr::bin_op(lhs, BinOpKind::Div, rhs))
+            (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
+            ---- ("division")
+            (codegen_expr_into(global, cfn, scope, target, Expr::Div { lhs, rhs }) => (code, global, cfn))
+        )
+
+        (
             (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
             ---- ("parenthesized")
             (codegen_expr_into(global, cfn, scope, target, Expr::Parens(expr)) => (code, global, cfn))
