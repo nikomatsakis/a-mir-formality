@@ -242,6 +242,13 @@ judgment_fn! {
         )
 
         (
+            (let expr = Expr::bin_op(lhs, BinOpKind::Rem, rhs))
+            (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
+            ---- ("remainder")
+            (codegen_expr_into(global, cfn, scope, target, Expr::Rem { lhs, rhs }) => (code, global, cfn))
+        )
+
+        (
             (let expr = Expr::bin_op(lhs, BinOpKind::BitOr, rhs))
             (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
             ---- ("bitwise or")

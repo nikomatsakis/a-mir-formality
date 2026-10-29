@@ -190,6 +190,7 @@ pub enum Expr {
     #[reject(Expr::BitAnd { .. }, _)]
     #[reject(Expr::BinOp { .. }, _)]
     #[reject(Expr::Mul { .. }, _)]
+    #[reject(Expr::Rem { .. }, _)]
     Call { callee: Arc<Expr>, args: Vec<Expr> },
 
     #[cast]
@@ -258,6 +259,7 @@ pub enum Expr {
     #[grammar($lhs $op $rhs)]
     #[precedence(4)]
     #[reject(_, BinOpKind::Mul, _)]
+    #[reject(_, BinOpKind::Rem, _)]
     #[reject(_, BinOpKind::BitOr, _)]
     #[reject(_, BinOpKind::BitXor, _)]
     #[reject(_, BinOpKind::BitAnd, _)]
@@ -271,6 +273,11 @@ pub enum Expr {
     #[grammar($lhs * $rhs)]
     #[precedence(5)]
     Mul { lhs: Arc<Expr>, rhs: Arc<Expr> },
+
+    // Remainder has the same precedence as multiplication.
+    #[grammar($lhs % $rhs)]
+    #[precedence(5)]
+    Rem { lhs: Arc<Expr>, rhs: Arc<Expr> },
 }
 
 // ANCHOR: PlaceExpr
@@ -371,6 +378,8 @@ pub enum BinOpKind {
     Sub,
     #[grammar(*)]
     Mul,
+    #[grammar(%)]
+    Rem,
     #[grammar(|)]
     BitOr,
     #[grammar(^)]
@@ -385,6 +394,7 @@ impl BinOpKind {
             BinOpKind::Add => "+",
             BinOpKind::Sub => "-",
             BinOpKind::Mul => "*",
+            BinOpKind::Rem => "%",
             BinOpKind::BitOr => "|",
             BinOpKind::BitXor => "^",
             BinOpKind::BitAnd => "&",
