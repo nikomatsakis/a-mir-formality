@@ -43,9 +43,8 @@ clone can be removed. Do not move proof logic into a helper just to hide a lint.
 The root integration test in `tests/judgment_lint.rs` uses `formality-lint` as
 a dev-dependency and calls `formality_lint::lint()` on the Rust sources under
 `crates/`. It runs with the normal workspace tests and fails on any diagnostic.
-The current tree has existing findings that must be addressed before this test
-passes. There is no automatic rewrite or suppression mechanism; review each
-finding before changing code.
+There is no automatic rewrite or suppression mechanism; review each finding
+before changing code.
 
 ## Scope and limitations
 

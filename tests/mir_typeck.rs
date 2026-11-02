@@ -531,7 +531,7 @@ fn test_call_generic_fn_wrong_parameters_number_with_turbofish() {
     "#]])
     .err(expect_test::expect![[r#"
             the rule "call" at (nll.rs) failed because
-              condition evaluated to false: `input_tys.len() == args.len()`"#]])
+              condition evaluated to false: `input_args.len() == args.len()`"#]])
 }
 
 /// Test calling a generic function with wrong number of type args via turbofish.

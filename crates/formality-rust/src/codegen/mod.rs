@@ -235,14 +235,14 @@ judgment_fn! {
         )
 
         (
-            (let expr = Expr::BinOp { lhs: lhs.clone(), op: BinOpKind::Mul, rhs: rhs.clone() })
+            (let expr = Expr::bin_op(lhs, BinOpKind::Mul, rhs))
             (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
             ---- ("multiplication")
             (codegen_expr_into(global, cfn, scope, target, Expr::Mul { lhs, rhs }) => (code, global, cfn))
         )
 
         (
-            (let expr = Expr::BinOp { lhs: lhs.clone(), op: BinOpKind::BitXor, rhs: rhs.clone() })
+            (let expr = Expr::bin_op(lhs, BinOpKind::BitXor, rhs))
             (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
             ---- ("bitwise xor")
             (codegen_expr_into(global, cfn, scope, target, Expr::BitXor { lhs, rhs }) => (code, global, cfn))

@@ -149,7 +149,7 @@ judgment_fn! {
             (let RigidTy { name: a_name, parameters: a_parameters } = a)
             (let RigidTy { name: b_name, parameters: b_parameters } = b)
             (if a_name == b_name)!
-            (zip(decls, env, assumptions, a_parameters.clone(), b_parameters.clone(), &prove_syntactically_eq) => c)
+            (zip(decls, env, assumptions, a_parameters, b_parameters, &prove_syntactically_eq) => c)
             ----------------------------- ("rigid")
             (prove_syntactically_eq(decls, env, assumptions, Ty::RigidTy(a), Ty::RigidTy(b)) => c)
         )
@@ -158,7 +158,7 @@ judgment_fn! {
             (let AliasTy { name: a_name, parameters: a_parameters } = a)
             (let AliasTy { name: b_name, parameters: b_parameters } = b)
             (if a_name == b_name)!
-            (zip(decls, env, assumptions, a_parameters.clone(), b_parameters.clone(), &prove_syntactically_eq) => c)
+            (zip(decls, env, assumptions, a_parameters, b_parameters, &prove_syntactically_eq) => c)
             ----------------------------- ("alias")
             (prove_syntactically_eq(decls, env, assumptions, Ty::AliasTy(a), Ty::AliasTy(b)) => c)
         )
