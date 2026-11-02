@@ -29,16 +29,9 @@ fn judgment_functions_pass_lints() -> Result<()> {
         let source =
             fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
         for finding in formality_lint::lint(&source) {
-            diagnostics.push(format!(
-                "{}:{}:{}: {}: {}",
-                path.strip_prefix(root)?.display(),
-                finding.line,
-                finding.column,
-                finding.rule,
-                finding.message,
-            ));
+            diagnostics.push(finding.render(&path.strip_prefix(root)?.to_string_lossy(), &source));
         }
     }
-    assert!(diagnostics.is_empty(), "{}", diagnostics.join("\n"));
+    assert!(diagnostics.is_empty(), "{}", diagnostics.join("\n\n"));
     Ok(())
 }

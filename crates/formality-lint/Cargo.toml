@@ -6,4 +6,8 @@ license = "MIT OR Apache-2.0"
 description = "Source lints for formality judgment functions"
 
 [dependencies]
+annotate-snippets = "0.12"
 regex = "1"
+
+[dev-dependencies]
+expect-test = "1"

@@ -16,9 +16,23 @@ cargo test -p formality-lint
 cargo test --test judgment_lint
 ```
 
-The integration test calls `formality_lint::lint()` directly and reports
-findings with `file:line:column` locations. Any lint finding or scan error
-fails the test. No command-line wrapper is required.
+The integration test calls `formality_lint::lint()` directly. Diagnostics retain
+their source locations and byte spans, and `Diagnostic::render()` uses
+`annotate-snippets` to show the offending source and an underline:
+
+```text
+error[explicit-clone]: explicit clone call in judgment
+ --> example.rs:2:22
+  |
+2 |     (let expr = value.clone())
+  |                      ^^^^^^
+  |
+  = help: use term constructors or implicit borrowing/casting
+```
+
+Rendering uses plain text without terminal escape codes so test and CI logs
+remain readable. Any lint finding or scan error fails the test. No command-line
+wrapper is required.
 
 ## Explicit clones
 
