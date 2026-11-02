@@ -64,3 +64,63 @@ fn fn_projection_outlives_where_clause() {
     .rustc_ok()
     .ok();
 }
+
+// The caller can use its projection outlives assumption to satisfy a callee's bound.
+// Neither function takes a reference that could imply the bound independently.
+#[test]
+fn call_uses_projection_outlives_bound() {
+    FormalityTest::new(crates![crate Foo {
+        trait A { type Item: []; }
+
+        fn needs_outlives<'a, T>() -> () where T: A, <T as A>::Item: 'a { trusted }
+
+        fn caller<'a, T>() -> () where T: A, <T as A>::Item: 'a {
+            needs_outlives::<'a, T>();
+        }
+    }])
+    .skip_execute()
+    .rustc_ok()
+    .ok();
+}
+
+// Removing only the caller's outlives assumption must make the same call fail.
+#[test]
+fn call_requires_projection_outlives_bound() {
+    let program = crates![crate Foo {
+        trait A { type Item: []; }
+
+        fn needs_outlives<'a, T>() -> () where T: A, <T as A>::Item: 'a { trusted }
+
+        fn caller<'a, T>() -> () where T: A {
+            needs_outlives::<'a, T>();
+        }
+    }];
+
+    // Check rustc first so the comparison still runs while formality incorrectly
+    // accepts this program. Keep the model rejection assertion as a regression.
+    let (rustc_ok, stderr) = formality_rust::to_rust::test_util::run_rustc(program);
+    assert!(!rustc_ok, "rustc must reject the missing outlives bound");
+    expect_test::expect![[r#"
+        error[E0309]: the associated type `<T01 as A>::Item` may not live long enough
+          --> lib.rs
+           |
+        13 | pub fn caller<'a00, T01>() -> ()
+           |               ---- the associated type `<T01 as A>::Item` must be valid for the lifetime `'a00` as defined here...
+        ...
+        17 |     needs_outlives::<'a00, T01>();
+           |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ ...so that the type `<T01 as A>::Item` will meet its required lifetime bounds
+           |
+        help: consider adding an explicit lifetime bound
+           |
+        15 |     T01: A, <T01 as A>::Item: 'a00
+           |             ++++++++++++++++++++++
+
+        For more information about this error, try `rustc --explain E0309`.
+        error: could not compile `Foo` (lib) due to 1 previous error
+    "#]]
+    .assert_eq(&formality_core::test_util::normalize_paths(&stderr));
+    assert!(
+        a_mir_formality::test_program_ok(program).is_err(),
+        "a call without the required projection outlives bound must be rejected"
+    );
+}
