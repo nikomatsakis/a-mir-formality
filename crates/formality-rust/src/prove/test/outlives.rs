@@ -44,3 +44,44 @@ fn outlives_one_lifetime_does_not_give_static() {
 
         crates/formality-rust/src/prove/prove_outlives.rs:8:1: no applicable rules for prove_outlives { a: !ty_0, b: ' static, assumptions: {!ty_0 : !lt_1}, env: Env { variables: [!ty_0, !lt_1], bias: Soundness, pending: [], allow_pending_outlives: false } }"#]]);
 }
+
+#[test]
+fn multiple_bound_lifetimes_give_static() {
+    // Exercise both binder positions, including an unused bound lifetime.
+    for assertion in [
+        "forall<T> {for<'a, 'b> T : 'a} => {T : 'static}",
+        "forall<T> {for<'a, 'b> T : 'b} => {T : 'static}",
+    ] {
+        test_prove(Program::empty(), term(assertion))
+            .assert_ok(expect!["{Constraints { env: Env { variables: [!ty_1], bias: Soundness, pending: [], allow_pending_outlives: false }, known_true: true, substitution: {} }}"]);
+    }
+}
+
+#[test]
+fn higher_ranked_outlives_is_transitive() {
+    test_prove(
+        Program::empty(),
+        term("forall<T, 'x> {T : 'x, for<'a> 'x : 'a} => {T : 'static}"),
+    )
+    .assert_ok(expect!["{Constraints { env: Env { variables: [!ty_1, !lt_2], bias: Soundness, pending: [], allow_pending_outlives: false }, known_true: true, substitution: {} }}"]);
+}
+
+#[test]
+fn type_binder_does_not_strengthen_outlives() {
+    // 'x is free in the assumption: quantifying over unrelated variables must
+    // neither replace 'x with 'static nor panic on the non-lifetime binder.
+    let result = test_prove(
+        Program::empty(),
+        term("forall<T, 'x> {for<'a, U> T : 'x} => {T : 'static}"),
+    );
+    assert!(!result.is_proven(), "a type binder must not imply 'static");
+}
+
+#[test]
+fn const_binder_does_not_strengthen_outlives() {
+    let result = test_prove(
+        Program::empty(),
+        term("forall<T, 'x> {for<'a, const N> T : 'x} => {T : 'static}"),
+    );
+    assert!(!result.is_proven(), "a const binder must not imply 'static");
+}
