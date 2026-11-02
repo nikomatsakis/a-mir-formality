@@ -10,6 +10,7 @@ dependencies = [
  "clap",
  "expect-test",
  "formality-core",
+ "formality-lint",
  "formality-macros",
  "formality-rust",
  "libspecr",
@@ -339,6 +340,13 @@ dependencies = [
  "serde",
  "serde_json",
  "walkdir",
+]
+
+[[package]]
+name = "formality-lint"
+version = "0.1.0"
+dependencies = [
+ "regex",
 ]
 
 [[package]]
