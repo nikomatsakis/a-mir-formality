@@ -1236,3 +1236,52 @@ fn compound_bitwise_xor() {
     .expect_output("4\n")
     .ok();
 }
+
+#[test]
+fn bitwise_xor_assignment_reads_destination_after_rhs() {
+    FormalityTest::new(crates![crate Foo {
+        fn update<'a>(r: &'a mut u32) -> u32 {
+            *r = 10_u32;
+            return 3_u32;
+        }
+        fn main() -> () {
+            let x: u32 = 1_u32;
+            exists<'a> {
+                let r: &'a mut u32 = &'a mut x;
+                x ^= update::<'a>(r);
+            }
+            println!(x);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("9\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_xor_signed_width_boundary() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(-128_i8 ^ -1_i8);
+            println!(127_i8 ^ -1_i8);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("127\n-128\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_xor_128_bit_high_bits() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(340282366920938463463374607431768211455_u128
+                ^ 170141183460469231731687303715884105728_u128);
+            println!(170141183460469231731687303715884105728_u128 ^ 1_u128);
+            println!(-170141183460469231731687303715884105728_i128 ^ -1_i128);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("170141183460469231731687303715884105727\n170141183460469231731687303715884105729\n170141183460469231731687303715884105727\n")
+    .ok();
+}
