@@ -470,3 +470,50 @@ fn call_requires_sized_struct_argument() {
         the rule "trait implied bound" at (prove_predicate.rs) failed because
           expression evaluated to an empty collection: `decls.trait_invariants()`"#]]);
 }
+
+// FIXME #540: use the associated-type Sized bound; remove should_panic when fixed.
+#[test]
+#[should_panic(expected = "prove_sized { ty: <!ty_0 as Tr>::A")]
+fn associated_sized_bound_allows_nonfinal_struct_field() {
+    let program = crates![crate Foo {
+        trait Tr { type A: [Sized]; }
+        struct S<T> where T: Tr { first: <T as Tr>::A, last: u32 }
+        fn main() -> () {}
+    }];
+    // Check rustc before the expected formality failure.
+    let (ok, stderr) = formality_rust::to_rust::test_util::run_rustc(&program);
+    assert!(ok, "{stderr}");
+    FormalityTest::new(program).rustc_ok().ok();
+}
+
+// FIXME #540: use the associated-type Sized bound; remove should_panic when fixed.
+#[test]
+#[should_panic(expected = "prove_sized { ty: <!ty_0 as Tr>::A")]
+fn associated_sized_bound_allows_enum_field() {
+    let program = crates![crate Foo {
+        trait Tr { type A: [Sized]; }
+        enum E<T> where T: Tr { Some { value: <T as Tr>::A }, None {} }
+        fn main() -> () {}
+    }];
+    // Check rustc before the expected formality failure.
+    let (ok, stderr) = formality_rust::to_rust::test_util::run_rustc(&program);
+    assert!(ok, "{stderr}");
+    FormalityTest::new(program).rustc_ok().ok();
+}
+
+#[test]
+fn nested_struct_sized_bound_executes() {
+    FormalityTest::new(crates![crate Foo {
+        struct Tail<T> { prefix: u32, tail: T }
+        struct Outer<T> { inner: Tail<T> }
+        fn consume<T>(value: T) -> u32 where T: Sized { return 7_u32; }
+        fn main() -> () {
+            println!(consume::<Outer<u32>>(Outer::<u32> {
+                inner: Tail::<u32> { prefix: 1_u32, tail: 2_u32 }
+            }));
+        }
+    }])
+    .rustc_ok()
+    .expect_output("7\n")
+    .ok();
+}
