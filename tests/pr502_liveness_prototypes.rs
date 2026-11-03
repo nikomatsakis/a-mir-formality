@@ -2,10 +2,7 @@
 use a_mir_formality::{crates, BorrowCheckFailure, FormalityTest};
 use formality_core::test;
 
-// FIXME: https://github.com/rust-lang/a-mir-formality/issues/532
-// Remove should_panic once codegen handles borrow-producing expressions.
 #[test]
-#[should_panic(expected = "codegen: unexpected live loans")]
 fn overwrite_before_later_read() {
     // The model has no value-returning block expressions. A nested call
     // sequences the assignment before the read, like `{ r = &w; r }`.
@@ -24,6 +21,8 @@ fn overwrite_before_later_read() {
     }])
     .rustc_ok()
     .expect_output("1\n")
+    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
+    .skip_execute()
     .borrowck_ok();
 }
 

@@ -5306,7 +5306,6 @@ fn later_argument_keeps_shared_borrow_live() {
         For more information about this error, try `rustc --explain E0502`.
         error: could not compile `Foo` (lib) due to 1 previous error
     "#]])
-    .skip_execute()
     .borrowck_err(
         BorrowCheckFailure::All,
         expect_test::expect![[r#"
@@ -5356,7 +5355,6 @@ fn later_field_keeps_shared_borrow_live() {
         For more information about this error, try `rustc --explain E0502`.
         error: could not compile `Foo` (lib) due to 1 previous error
     "#]])
-    .skip_execute()
     .borrowck_err(
         BorrowCheckFailure::All,
         expect_test::expect![[r#"
@@ -5385,6 +5383,7 @@ fn later_field_keeps_shared_borrow_live() {
 #[test]
 fn copy_before_mut_borrow_in_arguments() {
     FormalityTest::new(crates![crate Foo {
+        fn main() -> () { println!(f()); }
         fn cb<'a>(b: u32, a: &'a mut u32) -> u32 { return b; }
         fn f() -> u32 {
             exists<'r0> {
@@ -5395,6 +5394,8 @@ fn copy_before_mut_borrow_in_arguments() {
         }
     }])
     .rustc_ok()
+    .expect_output("0\n")
+    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
     .skip_execute()
     .borrowck_ok();
 }
@@ -5405,6 +5406,7 @@ fn copy_before_mut_borrow_in_arguments() {
 #[test]
 fn two_shared_borrows_in_arguments() {
     FormalityTest::new(crates![crate Foo {
+        fn main() -> () { println!(f()); }
         fn ss<'a, 'b>(a: &'a u32, b: &'b u32) -> u32 { return 0_u32; }
         fn f() -> u32 {
             exists<'r0, 'r1> {
@@ -5415,6 +5417,8 @@ fn two_shared_borrows_in_arguments() {
         }
     }])
     .rustc_ok()
+    .expect_output("0\n")
+    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
     .skip_execute()
     .borrowck_ok();
 }
@@ -5425,6 +5429,7 @@ fn two_shared_borrows_in_arguments() {
 #[test]
 fn mut_borrows_of_disjoint_fields_in_arguments() {
     FormalityTest::new(crates![crate Foo {
+        fn main() -> () { println!(f()); }
         struct S { a: u32, b: u32 }
         fn both<'a, 'b>(a: &'a mut u32, b: &'b mut u32) -> u32 { return 0_u32; }
         fn f() -> u32 {
@@ -5436,6 +5441,8 @@ fn mut_borrows_of_disjoint_fields_in_arguments() {
         }
     }])
     .rustc_ok()
+    .expect_output("0\n")
+    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
     .skip_execute()
     .borrowck_ok();
 }
@@ -5447,6 +5454,7 @@ fn mut_borrows_of_disjoint_fields_in_arguments() {
 #[test]
 fn later_argument_reads_borrow_of_other_local() {
     FormalityTest::new(crates![crate Foo {
+        fn main() -> () { println!(f()); }
         fn pair<'a, 'b>(a: &'a mut u32, b: &'b u32) -> u32 { return 0_u32; }
         fn f() -> u32 {
             exists<'r0, 'r1> {
@@ -5459,6 +5467,8 @@ fn later_argument_reads_borrow_of_other_local() {
         }
     }])
     .rustc_ok()
+    .expect_output("0\n")
+    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
     .skip_execute()
     .borrowck_ok();
 }
