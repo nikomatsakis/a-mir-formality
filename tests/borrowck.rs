@@ -5462,4 +5462,3 @@ fn later_argument_reads_borrow_of_other_local() {
     .skip_execute()
     .borrowck_ok();
 }
-

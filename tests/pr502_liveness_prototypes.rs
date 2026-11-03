@@ -2,13 +2,17 @@
 use a_mir_formality::{crates, BorrowCheckFailure, FormalityTest};
 use formality_core::test;
 
+// FIXME: https://github.com/rust-lang/a-mir-formality/issues/532
+// Remove should_panic once codegen handles borrow-producing expressions.
 #[test]
+#[should_panic(expected = "codegen: unexpected live loans")]
 fn overwrite_before_later_read() {
     // The model has no value-returning block expressions. A nested call
     // sequences the assignment before the read, like `{ r = &w; r }`.
     FormalityTest::new(crates![crate Foo {
+        fn main() -> () { f(); }
         fn after_reset<'a>(unit: (), r: &'a u32) -> &'a u32 { return r; }
-        fn pair<'a, 'b>(a: &'a mut u32, b: &'b u32) -> () {}
+        fn pair<'a, 'b>(a: &'a mut u32, b: &'b u32) -> () { println!(*b); }
         fn f() -> () {
             exists<'r0, 'r1> {
                 let v: u32 = 0_u32;
@@ -19,7 +23,7 @@ fn overwrite_before_later_read() {
         }
     }])
     .rustc_ok()
-    .skip_execute()
+    .expect_output("1\n")
     .borrowck_ok();
 }
 
@@ -50,7 +54,6 @@ fn nested_later_read_keeps_loan_live() {
         For more information about this error, try `rustc --explain E0502`.
         error: could not compile `Foo` (lib) due to 1 previous error
     "#]])
-    .skip_execute()
     .borrowck_err(
         BorrowCheckFailure::All,
         expect_test::expect![[r#"
@@ -95,7 +98,6 @@ fn reordered_fields_borrow_before_read_rejected() {
         For more information about this error, try `rustc --explain E0502`.
         error: could not compile `Foo` (lib) due to 1 previous error
     "#]])
-    .skip_execute()
     .borrowck_err(BorrowCheckFailure::All, expect_test::expect![[r#"
         the rule "struct" at (nll.rs) failed because
           condition evaluated to false: `field.name == field_exprs[i].name`
@@ -117,17 +119,19 @@ fn reordered_fields_borrow_before_read_rejected() {
 #[test]
 fn reordered_fields_read_before_borrow_accepted() {
     FormalityTest::new(crates![crate Foo {
+        fn main() -> () { f(); }
         struct Pair<'a> { b: &'a mut u32, a: u32 }
         fn f() -> () {
             exists<'r0, 'r1> {
                 let v: u32 = 0_u32;
                 let r: &'r0 u32 = &'r0 v;
                 let p: Pair<'r1> = Pair::<'r1> { a: *r, b: &'r1 mut v };
+                println!(p.a);
             }
         }
     }])
     .rustc_ok()
-    .skip_execute()
+    .expect_output("0\n")
     .borrowck_ok();
 }
 
@@ -158,7 +162,6 @@ fn read_after_call_keeps_loan_live() {
         For more information about this error, try `rustc --explain E0502`.
         error: could not compile `Foo` (lib) due to 1 previous error
     "#]])
-    .skip_execute()
     .borrowck_err(
         BorrowCheckFailure::All,
         expect_test::expect![[r#"
