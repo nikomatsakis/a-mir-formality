@@ -185,6 +185,7 @@ pub enum Expr {
     // Restrict the callee without restricting precedence inside the arguments.
     #[reject(Expr::Assign { .. }, _)]
     #[reject(Expr::AssignOp { .. }, _)]
+    #[reject(Expr::BitOr { .. }, _)]
     #[reject(Expr::BitXor { .. }, _)]
     #[reject(Expr::BinOp { .. }, _)]
     #[reject(Expr::Mul { .. }, _)]
@@ -228,17 +229,26 @@ pub enum Expr {
         turbofish: Turbofish,
     },
 
+    /// `lhs | rhs`
+    ///
+    /// Bitwise OR of two integers. Binds more loosely than XOR,
+    /// so `a | b ^ c` means `a | (b ^ c)`.
+    #[grammar($lhs | $rhs)]
+    #[precedence(1)]
+    BitOr { lhs: Arc<Expr>, rhs: Arc<Expr> },
+
     /// `lhs ^ rhs`
     ///
     /// Bitwise XOR of two integers. Binds more loosely than the
     /// arithmetic operators, so `a ^ b + c` means `a ^ (b + c)`.
     #[grammar($lhs ^ $rhs)]
-    #[precedence(1)]
+    #[precedence(2)]
     BitXor { lhs: Arc<Expr>, rhs: Arc<Expr> },
 
     #[grammar($lhs $op $rhs)]
-    #[precedence(2)]
+    #[precedence(3)]
     #[reject(_, BinOpKind::Mul, _)]
+    #[reject(_, BinOpKind::BitOr, _)]
     #[reject(_, BinOpKind::BitXor, _)]
     BinOp {
         lhs: Arc<Expr>,
@@ -248,7 +258,7 @@ pub enum Expr {
 
     // Multiplication comes before addition.
     #[grammar($lhs * $rhs)]
-    #[precedence(3)]
+    #[precedence(4)]
     Mul { lhs: Arc<Expr>, rhs: Arc<Expr> },
 }
 
@@ -350,6 +360,8 @@ pub enum BinOpKind {
     Sub,
     #[grammar(*)]
     Mul,
+    #[grammar(|)]
+    BitOr,
     #[grammar(^)]
     BitXor,
 }
@@ -360,6 +372,7 @@ impl BinOpKind {
             BinOpKind::Add => "+",
             BinOpKind::Sub => "-",
             BinOpKind::Mul => "*",
+            BinOpKind::BitOr => "|",
             BinOpKind::BitXor => "^",
         }
     }

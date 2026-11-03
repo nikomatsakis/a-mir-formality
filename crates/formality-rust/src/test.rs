@@ -463,6 +463,67 @@ fn test_parse_bitxor_left_associative() {
 }
 
 #[test]
+fn test_parse_bitor_binds_looser_than_bitxor() {
+    let expr: Expr = term("a ^ b | c ^ d");
+    expect_test::expect![[r#"
+        BitOr {
+            lhs: BitXor {
+                lhs: Place(
+                    Var(
+                        a,
+                    ),
+                ),
+                rhs: Place(
+                    Var(
+                        b,
+                    ),
+                ),
+            },
+            rhs: BitXor {
+                lhs: Place(
+                    Var(
+                        c,
+                    ),
+                ),
+                rhs: Place(
+                    Var(
+                        d,
+                    ),
+                ),
+            },
+        }
+    "#]]
+    .assert_debug_eq(&expr);
+}
+
+#[test]
+fn test_parse_bitor_left_associative() {
+    let expr: Expr = term("a | b | c");
+    expect_test::expect![[r#"
+        BitOr {
+            lhs: BitOr {
+                lhs: Place(
+                    Var(
+                        a,
+                    ),
+                ),
+                rhs: Place(
+                    Var(
+                        b,
+                    ),
+                ),
+            },
+            rhs: Place(
+                Var(
+                    c,
+                ),
+            ),
+        }
+    "#]]
+    .assert_debug_eq(&expr);
+}
+
+#[test]
 fn test_parse_128_bit_integers_extreme_values() {
     let expr_data: Expr = term("-170141183460469231731687303715884105728 _ i128");
     assert!(matches!(

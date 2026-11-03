@@ -393,6 +393,13 @@ judgment_fn! {
         )
 
         (
+            (let expr = Expr::bin_op(lhs, BinOpKind::BitOr, rhs))
+            (borrow_check_expr(env, assumptions, state, expr, places_live_on_exit) => (ty, state))
+            ---- ("bitwise or")
+            (borrow_check_expr(env, assumptions, state, Expr::BitOr { lhs, rhs }, places_live_on_exit) => (ty, state))
+        )
+
+        (
             (let expr = Expr::bin_op(lhs, BinOpKind::BitXor, rhs))
             (borrow_check_expr(env, assumptions, state, expr, places_live_on_exit) => (ty, state))
             ---- ("bitwise xor")
