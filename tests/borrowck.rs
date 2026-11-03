@@ -5395,8 +5395,6 @@ fn copy_before_mut_borrow_in_arguments() {
     }])
     .rustc_ok()
     .expect_output("0\n")
-    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
-    .skip_execute()
     .borrowck_ok();
 }
 
@@ -5418,8 +5416,6 @@ fn two_shared_borrows_in_arguments() {
     }])
     .rustc_ok()
     .expect_output("0\n")
-    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
-    .skip_execute()
     .borrowck_ok();
 }
 
@@ -5442,8 +5438,6 @@ fn mut_borrows_of_disjoint_fields_in_arguments() {
     }])
     .rustc_ok()
     .expect_output("0\n")
-    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
-    .skip_execute()
     .borrowck_ok();
 }
 
@@ -5468,7 +5462,5 @@ fn later_argument_reads_borrow_of_other_local() {
     }])
     .rustc_ok()
     .expect_output("0\n")
-    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
-    .skip_execute()
     .borrowck_ok();
 }

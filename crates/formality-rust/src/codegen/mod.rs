@@ -438,7 +438,7 @@ judgment_fn! {
                 &scope.flow_state,
                 place,
             ) => (typed_place, returned_state))
-            (let () = assert_no_constraints(returned_state))
+            (let () = assert_codegen_state(returned_state))
             ---- ("resolve")
             (resolve_place(cfn, scope, place) => typed_place)
         )
@@ -460,7 +460,7 @@ judgment_fn! {
                 &scope.flow_state,
                 ty,
             ) => (rigid_ty, returned_state))
-            (let () = assert_no_constraints(returned_state))
+            (let () = assert_codegen_state(returned_state))
             ---- ("resolve")
             (resolve_rigid(cfn, scope, ty) => rigid_ty)
         )
@@ -483,7 +483,7 @@ judgment_fn! {
                 expr,
                 LivePlaces::default(),
             ) => (ty, state))
-            (let () = assert_no_constraints(state))
+            (let () = assert_codegen_state(state))
             ---- ("type_expr")
             (type_expr(cfn, scope, expr) => ty)
         )

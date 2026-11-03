@@ -191,15 +191,28 @@ pub(super) fn unwrap_proven<T: std::fmt::Debug + Clone + Ord>(
 // Borrow-checker wrappers
 // ===========================================================================
 
-pub(super) fn assert_no_constraints(state: &FlowState) {
+pub(super) fn assert_codegen_state(state: &FlowState) {
+    // Reborrows record outlives constraints directly, even when they are trivial.
+    // All relationships between erased/static lifetimes are provable in codegen.
     assert!(
-        state.current.outlives.is_empty(),
+        state.current.outlives.iter().all(|outlives| {
+            [&outlives.a, &outlives.b].into_iter().all(|parameter| {
+                matches!(parameter, Parameter::Lt(lt) if matches!(lt.as_ref(), Lt::Erased | Lt::Static))
+            })
+        }),
         "codegen: unexpected outlives constraints: {:?}",
         state.current.outlives
     );
+    // Expression typing reuses borrow checking, which legitimately issues loans.
+    // Function parameters have been instantiated and `exists` lifetimes erased;
+    // only erased or explicit static lifetimes may remain in these effects.
     assert!(
-        state.current.loans_live.is_empty(),
-        "codegen: unexpected live loans: {:?}",
+        state
+            .current
+            .loans_live
+            .iter()
+            .all(|loan| matches!(loan.lt, Lt::Erased | Lt::Static)),
+        "codegen: unexpected loan lifetimes: {:?}",
         state.current.loans_live
     );
     assert!(
