@@ -1,22 +1,11 @@
-//! Regex-based checks inside `judgment_fn!` invocations.
+//! Token-based checks inside `judgment_fn!` invocations.
 //!
-//! Unlike the coverage scraper, this checks test judgments too and reports
-//! malformed source. No Rust or judgment DSL parser is involved.
+//! Rust tokenization handles comments, literals, and nested delimiters. We walk
+//! the token trees without parsing Rust syntax or the judgment DSL.
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet};
-use regex::Regex;
+use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
 use std::ops::Range;
-use std::sync::LazyLock;
-
-static MACRO: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\bjudgment_fn\s*!\s*([({\[])").unwrap());
-static RAW_STRING: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r##"^(?:r|br|cr)(#*)""##).unwrap());
-static CHAR: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^'(?:\\(?:u\{[0-9a-fA-F_]+\}|x[0-9a-fA-F]{2}|[^\n])|[^'\\\n])'").unwrap()
-});
-static CLONE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?:\.|::)\s*(?<name>clone)\s*\(").unwrap());
 
 /// A source diagnostic with one-based line and character-column numbers.
 #[derive(Debug, PartialEq, Eq)]
@@ -68,131 +57,74 @@ fn diagnostic(
     }
 }
 
-type ScanResult<T> = Result<T, (usize, &'static str)>;
-
-/// Hide comments and literals without changing byte offsets or newlines.
-fn mask_non_code(source: &str) -> ScanResult<String> {
-    let bytes = source.as_bytes();
-    let mut masked = bytes.to_vec();
-    let mut i = 0;
-    while i < bytes.len() {
-        let start = i;
-        let rest = &source[i..];
-        if rest.starts_with("//") {
-            i += rest.find('\n').unwrap_or(rest.len());
-        } else if rest.starts_with("/*") {
-            i += 2;
-            let mut depth = 1;
-            while i < bytes.len() && depth > 0 {
-                if bytes[i..].starts_with(b"/*") {
-                    depth += 1;
-                    i += 2;
-                } else if bytes[i..].starts_with(b"*/") {
-                    depth -= 1;
-                    i += 2;
-                } else {
-                    i += 1;
-                }
-            }
-            if depth > 0 {
-                return Err((start, "unterminated block comment"));
-            }
-        } else if let Some(raw) = RAW_STRING.captures(rest).filter(|_| {
-            !source[..i]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_alphanumeric() || c == '_')
-        }) {
-            let content = i + raw.get(0).unwrap().end();
-            let terminator = format!("\"{}", &raw[1]);
-            let end = source[content..]
-                .find(&terminator)
-                .ok_or((start, "unterminated raw string"))?;
-            i = content + end + terminator.len();
-        } else if bytes[i] == b'"' {
-            i += 1;
-            loop {
-                match bytes.get(i) {
-                    Some(b'\\') => i += 2,
-                    Some(b'"') => {
-                        i += 1;
-                        break;
-                    }
-                    Some(_) => i += 1,
-                    None => return Err((start, "unterminated string")),
-                }
-            }
-        } else if let Some(character) = CHAR.find(rest) {
-            // A lifetime such as 'a has no closing quote and is left alone.
-            i += character.end();
-        } else {
-            i += rest.chars().next().unwrap().len_utf8();
-            continue;
-        }
-        for byte in &mut masked[start..i] {
-            if *byte != b'\n' {
-                *byte = b' ';
-            }
-        }
-    }
-    // We replace complete comments/literals with ASCII and retain other UTF-8.
-    Ok(String::from_utf8(masked).expect("masking preserves UTF-8"))
-}
-
-fn close_for(open: u8) -> Option<u8> {
-    match open {
-        b'(' => Some(b')'),
-        b'[' => Some(b']'),
-        b'{' => Some(b'}'),
-        _ => None,
-    }
-}
-
-fn body_end(code: &str, opening: usize) -> ScanResult<usize> {
-    let mut stack = vec![close_for(code.as_bytes()[opening]).unwrap()];
-    for (i, byte) in code.bytes().enumerate().skip(opening + 1) {
-        if let Some(close) = close_for(byte) {
-            stack.push(close);
-        } else if matches!(byte, b')' | b']' | b'}') {
-            if stack.pop() != Some(byte) {
-                return Err((i, "mismatched delimiter in judgment_fn!"));
-            }
-            if stack.is_empty() {
-                return Ok(i);
-            }
-        }
-    }
-    Err((opening, "unterminated judgment_fn! invocation"))
-}
-
 /// Check literal macro invocations, including those in test code.
 pub fn lint(source: &str) -> Vec<Diagnostic> {
-    let mut findings = Vec::new();
-    let scan = || -> ScanResult<()> {
-        let code = mask_non_code(source)?;
-        let mut cursor = 0;
-        while let Some(invocation) = MACRO.find_at(&code, cursor) {
-            let opening = invocation.end() - 1;
-            let end = body_end(&code, opening)?;
-            for occurrence in CLONE.captures_iter(&code[opening + 1..end]) {
-                let start = opening + 1 + occurrence.get(0).unwrap().start();
-                let end = opening + 1 + occurrence.name("name").unwrap().end();
+    match source.parse::<TokenStream>() {
+        Ok(tokens) => {
+            let mut findings = Vec::new();
+            lint_tokens(source, tokens, false, &mut findings);
+            findings
+        }
+        Err(error) => vec![diagnostic(
+            source,
+            error.span().byte_range(),
+            "scan-error",
+            "could not tokenize Rust source",
+        )],
+    }
+}
+
+fn is_ident(token: &TokenTree, name: &str) -> bool {
+    match token {
+        TokenTree::Ident(ident) => {
+            let spelling = ident.to_string();
+            spelling.strip_prefix("r#").unwrap_or(&spelling) == name
+        }
+        _ => false,
+    }
+}
+
+fn is_punct(token: &TokenTree, ch: char) -> bool {
+    matches!(token, TokenTree::Punct(punct) if punct.as_char() == ch)
+}
+
+fn lint_tokens(
+    source: &str,
+    stream: TokenStream,
+    in_judgment: bool,
+    findings: &mut Vec<Diagnostic>,
+) {
+    let tokens: Vec<_> = stream.into_iter().collect();
+    for (i, token) in tokens.iter().enumerate() {
+        if in_judgment && is_ident(token, "clone") && i > 0 {
+            let is_call = matches!(tokens.get(i + 1), Some(TokenTree::Group(group))
+                if group.delimiter() == Delimiter::Parenthesis);
+            let start = if is_punct(&tokens[i - 1], '.') {
+                Some(i - 1)
+            } else if i >= 2
+                && matches!(&tokens[i - 2], TokenTree::Punct(punct)
+                    if punct.as_char() == ':' && punct.spacing() == Spacing::Joint)
+                && is_punct(&tokens[i - 1], ':')
+            {
+                Some(i - 2)
+            } else {
+                None
+            };
+            if let Some(start) = start.filter(|_| is_call) {
                 findings.push(diagnostic(
                     source,
-                    start..end,
+                    tokens[start].span().byte_range().start..token.span().byte_range().end,
                     "explicit-clone",
                     "explicit clone call in judgment",
                 ));
             }
-            cursor = end + 1;
         }
-        Ok(())
-    }();
-    if let Err((offset, message)) = scan {
-        let end = offset + source[offset..].chars().next().map_or(0, char::len_utf8);
-        findings.push(diagnostic(source, offset..end, "scan-error", message));
+        if let TokenTree::Group(group) = token {
+            let is_judgment =
+                i >= 2 && is_ident(&tokens[i - 2], "judgment_fn") && is_punct(&tokens[i - 1], '!');
+            lint_tokens(source, group.stream(), in_judgment || is_judgment, findings);
+        }
     }
-    findings
 }
 
 #[cfg(test)]
@@ -220,7 +152,7 @@ mod tests {
         let source = "judgment_fn! {";
         let finding = lint(source).remove(0);
         expect_test::expect![[r#"
-            error[scan-error]: unterminated judgment_fn! invocation
+            error[scan-error]: could not tokenize Rust source
              --> example.rs:1:14
               |
             1 | judgment_fn! {
@@ -349,6 +281,54 @@ outside.clone();
         ] {
             assert_eq!(lint(source).last().unwrap().rule, "scan-error", "{source}");
         }
+    }
+
+    #[test]
+    fn raw_identifiers_are_linted() {
+        let source = "r#judgment_fn! { value.r#clone(); Clone::r#clone(value); }";
+        let findings = lint(source);
+        assert_eq!(
+            findings
+                .iter()
+                .map(|d| &source[d.span.clone()])
+                .collect::<Vec<_>>(),
+            [".r#clone", "::r#clone"]
+        );
+    }
+
+    #[test]
+    fn nested_judgments_are_found_once() {
+        let source = "mod m { judgment_fn! { outer.clone(); judgment_fn! { inner.clone(); } } helper.clone(); }";
+        let findings = lint(source);
+        assert_eq!(findings.len(), 2);
+        assert!(findings.iter().all(|d| d.rule == "explicit-clone"));
+        assert_eq!(findings[0].span.start, source.find(".clone").unwrap());
+        assert_eq!(
+            findings[1].span.start,
+            source.rfind("inner.clone").unwrap() + 5
+        );
+    }
+
+    #[test]
+    fn literals_and_token_boundaries_do_not_form_calls() {
+        // These need only be valid token trees: judgment bodies are a DSL.
+        let source = r#"judgment_fn! {
+            value . "ignored" clone();
+            value.clone "ignored" ();
+            value.cloned();
+            value.clone;
+            Clone: :clone(value);
+            /// fake.clone()
+            (let x = 1)
+        }"#;
+        assert!(lint(source).is_empty());
+    }
+
+    #[test]
+    fn malformed_source_outside_judgment_is_reported() {
+        let findings = lint("fn helper() { ] }");
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].rule, "scan-error");
     }
 
     #[test]

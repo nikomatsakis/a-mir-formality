@@ -1,15 +1,15 @@
 # Linting judgment functions
 
 The `formality-lint` library identifies
-`judgment_fn!` invocations, balances their delimiters, and applies regular
-expressions within their bodies. Comments and string/character literals are
-masked while preserving source locations. Ordinary Rust helpers outside the
+`judgment_fn!` invocations by walking `proc-macro2` token trees and checks
+tokens within their bodies. The tokenizer handles comments, literals, and
+nested delimiters while preserving source locations. Ordinary Rust helpers outside the
 macro bodies are not linted.
 
 Run the tests from the repository root:
 
 ```sh
-# Test the scanner and lint rules.
+# Test token traversal and lint rules.
 cargo test -p formality-lint
 
 # Lint this repository through the library.
@@ -65,10 +65,10 @@ before changing code.
 This is not a Rust parser or a judgment DSL parser. It does not expand macros,
 resolve aliases of `judgment_fn`, evaluate `cfg`, or decide whether a Rust
 conditional is really a proof obligation. It checks literal macro invocations,
-including those in test code. Malformed comments, strings, or invocation
+including those in test code. Malformed comments, strings, or file
 delimiters produce a scan error instead of a silently incomplete audit.
 
-Additional regex checks can be added in `formality_lint`, with scanner
+Additional token checks can be added in `formality_lint`, with traversal
 and diagnostic tests. Patterns such as `.is_proven()` or `.upcast()` need contextual review
 before being made unconditional errors; this first version only enforces the
 explicit-clone rule.
