@@ -5651,3 +5651,106 @@ fn exists_block_loan_ends_with_its_uses() {
     .skip_execute()
     .borrowck_ok()
 }
+
+/// `x | *r` reads `x` before the last use of its mutable loan.
+#[test]
+fn bitwise_or_reads_lhs_while_borrowed() {
+    FormalityTest::new(crates![crate Foo {
+        fn foo() -> () {
+            let x: u32 = 1_u32;
+            exists<'a> {
+                let r: &'a mut u32 = &'a mut x;
+                let y: u32 = x | *r;
+            }
+        }
+    }])
+    .rustc_err(expect_test::expect![[r#"
+        error[E0503]: cannot use `x` because it was mutably borrowed
+         --> lib.rs
+          |
+        4 |         let mut r: &'_ mut u32 = &mut x;
+          |                                  ------ `x` is borrowed here
+        5 |         let mut y: u32 = x | *r;
+          |                          ^   -- borrow later used here
+          |                          |
+          |                          use of borrowed `x`
+
+        For more information about this error, try `rustc --explain E0503`.
+        error: could not compile `Foo` (lib) due to 1 previous error
+    "#]])
+    .borrowck_err(
+        BorrowCheckFailure::All,
+        expect_test::expect![[r#"
+        the rule "borrow of disjoint places" at (nll.rs) failed because
+          condition evaluated to false: `place_disjoint_from_place(&loan.place, &access.place)`
+            &loan.place = x : u32
+            &access.place = x : u32
+
+        the rule "loan_cannot_outlive" at (nll.rs) failed because
+          condition evaluated to false: `!outlived_by_loan.contains(&lifetime.upcast())`
+            outlived_by_loan = {?lt_1}
+            &lifetime.upcast() = ?lt_1
+
+        the rule "borrow of disjoint places" at (nll.rs) failed because
+          condition evaluated to false: `place_disjoint_from_place(&loan.place, &access.place)`
+            &loan.place = x : u32
+            &access.place = x : u32
+
+        the rule "loan_cannot_outlive" at (nll.rs) failed because
+          condition evaluated to false: `!outlived_by_loan.contains(&lifetime.upcast())`
+            outlived_by_loan = {?lt_1}
+            &lifetime.upcast() = ?lt_1"#]],
+    );
+}
+
+/// A later `|` that uses the loan in its right operand keeps the loan live.
+#[test]
+fn bitwise_or_operand_keeps_loan_live() {
+    FormalityTest::new(crates![crate Foo {
+        fn foo() -> () {
+            let x: u32 = 1_u32;
+            exists<'a> {
+                let r: &'a mut u32 = &'a mut x;
+                let y: u32 = x;
+                let z: u32 = 1_u32 | *r;
+            }
+        }
+    }])
+    .rustc_err(expect_test::expect![[r#"
+        error[E0503]: cannot use `x` because it was mutably borrowed
+         --> lib.rs
+          |
+        4 |         let mut r: &'_ mut u32 = &mut x;
+          |                                  ------ `x` is borrowed here
+        5 |         let mut y: u32 = x;
+          |                          ^ use of borrowed `x`
+        6 |         let mut z: u32 = 1_u32 | *r;
+          |                                  -- borrow later used here
+
+        For more information about this error, try `rustc --explain E0503`.
+        error: could not compile `Foo` (lib) due to 1 previous error
+    "#]])
+    .borrowck_err(
+        BorrowCheckFailure::All,
+        expect_test::expect![[r#"
+        the rule "borrow of disjoint places" at (nll.rs) failed because
+          condition evaluated to false: `place_disjoint_from_place(&loan.place, &access.place)`
+            &loan.place = x : u32
+            &access.place = x : u32
+
+        the rule "loan_cannot_outlive" at (nll.rs) failed because
+          condition evaluated to false: `!outlived_by_loan.contains(&lifetime.upcast())`
+            outlived_by_loan = {?lt_1}
+            &lifetime.upcast() = ?lt_1
+
+        the rule "borrow of disjoint places" at (nll.rs) failed because
+          condition evaluated to false: `place_disjoint_from_place(&loan.place, &access.place)`
+            &loan.place = x : u32
+            &access.place = x : u32
+
+        the rule "loan_cannot_outlive" at (nll.rs) failed because
+          condition evaluated to false: `!outlived_by_loan.contains(&lifetime.upcast())`
+            outlived_by_loan = {?lt_1}
+            &lifetime.upcast() = ?lt_1"#]],
+    );
+}
