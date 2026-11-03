@@ -450,6 +450,18 @@ mod test {
     }
 
     #[test]
+    fn tuple_const_unexpected_parameters_is_an_error() {
+        let mut ctx = Context::default();
+        let konst = Const::RigidValue(RigidConstData {
+            name: RigidName::Tuple(1),
+            parameters: vec![Parameter::Ty(crate::rust::term::<Ty>("u32").into())],
+            values: vec![u32_const(7)],
+        });
+        let err = lower_const(&mut ctx, &konst).unwrap_err();
+        assert!(err.to_string().contains("parameter"), "{err}");
+    }
+
+    #[test]
     fn unsupported_rigid_const_shape_is_an_error() {
         let mut ctx = Context::default();
         let konst = Const::RigidValue(RigidConstData {
