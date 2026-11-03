@@ -198,7 +198,7 @@ judgment_fn! {
         )
 
         (
-            (check_adt(program, &s.to_adt()) => ())
+            (check_adt(program, s) => ())
             ------------------------------------------------------------ ("adt")
             (check_crate_item(program, CrateItem::AdtItem(s), crate_id) => ())
         )

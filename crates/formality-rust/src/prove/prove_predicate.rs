@@ -1,5 +1,5 @@
-use crate::grammar::{AtomicPredicate, Predicate, Predicates};
-use formality_core::judgment_fn;
+use crate::grammar::{AtomicPredicate, Predicate, Predicates, TraitRef, Ty};
+use formality_core::{judgment_fn, Downcast};
 
 use crate::prove::{
     binder_scope::{enter_existentially_with_constraints, enter_universally_with_constraints},
@@ -12,6 +12,7 @@ use crate::prove::{
     prove_const_has_type::prove_const_has_type,
     prove_eq::prove_eq,
     prove_outlives::prove_outlives,
+    prove_sized::prove_sized,
     prove_sub::prove_sub,
     prove_via::prove_via,
     prove_wf::prove_wf,
@@ -85,6 +86,14 @@ judgment_fn! {
             (may_be_remote(decls, env, assumptions, trait_ref) => c)
             ----------------------------- ("coherence / remote impl")
             (prove_predicate(decls, env, assumptions, AtomicPredicate::IsImplemented(trait_ref)) => c)
+        )
+
+        (
+            (if trait_id.is_sized())!
+            (let (ty,) = parameters.downcast_err::<(Ty,)>()?)
+            (prove_sized(decls, env, assumptions, ty) => c)
+            ----------------------------- ("built-in Sized")
+            (prove_predicate(decls, env, assumptions, AtomicPredicate::IsImplemented(TraitRef { trait_id, parameters })) => c)
         )
 
         (

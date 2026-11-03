@@ -37,6 +37,7 @@ pub mod prove_normalize;
 mod prove_outlives;
 mod prove_predicate;
 mod prove_predicate_list;
+mod prove_sized;
 mod prove_sub;
 mod prove_via;
 mod prove_wf;
