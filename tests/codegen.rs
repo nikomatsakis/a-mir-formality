@@ -1285,3 +1285,173 @@ fn bitwise_xor_128_bit_high_bits() {
     .expect_output("170141183460469231731687303715884105727\n170141183460469231731687303715884105729\n170141183460469231731687303715884105727\n")
     .ok();
 }
+
+#[test]
+fn integer_bitwise_or() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(12_i32 | 10_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("14\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_xor_before_bitwise_or() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(1_i32 | 2_i32 ^ 3_i32);
+            println!(5_i32 ^ 1_i32 | 1_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n5\n")
+    .ok();
+}
+
+#[test]
+fn arithmetic_before_bitwise_or() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(3_i32 | 1_i32 + 1_i32);
+            println!(3_i32 + 1_i32 | 1_i32);
+            println!(9_i32 - 1_i32 | 1_i32);
+            println!(5_i32 | 2_i32 * 3_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("3\n5\n9\n7\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_negative_operands() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(-16_i32 | 5_i32);
+            println!(-8_i32 | -3_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("-11\n-3\n")
+    .ok();
+}
+
+#[test]
+fn integer_bitwise_or_unsigned() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(240_u8 | 15_u8);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("255\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_runs_calls_left_to_right() {
+    FormalityTest::new(crates![crate Foo {
+        fn left() -> i32 { println!(1_i32); return 4_i32; }
+        fn right() -> i32 { println!(2_i32); return 1_i32; }
+        fn main() -> () { println!(left() | right()); }
+    }])
+    .rustc_ok()
+    .expect_output("1\n2\n5\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_with_parentheses() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!((1_i32 | 2_i32) ^ 3_i32);
+            println!(2_i32 * (1_i32 | 4_i32));
+        }
+    }])
+    .rustc_ok()
+    .expect_output("0\n10\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_in_assignment() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            let x: i32 = 5_i32;
+            x = x | 2_i32;
+            println!(x);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("7\n")
+    .ok();
+}
+
+#[test]
+fn compound_bitwise_or() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            let x: u32 = 6_u32;
+            x |= 1_u32 + 2_u32;
+            println!(x);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("7\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_assignment_reads_destination_after_rhs() {
+    FormalityTest::new(crates![crate Foo {
+        fn update<'a>(r: &'a mut u32) -> u32 {
+            *r = 8_u32;
+            return 1_u32;
+        }
+        fn main() -> () {
+            let x: u32 = 2_u32;
+            exists<'a> {
+                let r: &'a mut u32 = &'a mut x;
+                x |= update::<'a>(r);
+            }
+            println!(x);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("9\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_signed_width_boundary() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(-128_i8 | 127_i8);
+            println!(64_i8 | 63_i8);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("-1\n127\n")
+    .ok();
+}
+
+#[test]
+fn bitwise_or_128_bit_high_bits() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(170141183460469231731687303715884105728_u128
+                | 170141183460469231731687303715884105727_u128);
+            println!(170141183460469231731687303715884105728_u128 | 1_u128);
+            println!(-170141183460469231731687303715884105728_i128
+                | 170141183460469231731687303715884105727_i128);
+        }
+    }])
+    .rustc_ok()
+    .expect_output(
+        "340282366920938463463374607431768211455\n170141183460469231731687303715884105729\n-1\n",
+    )
+    .ok();
+}
