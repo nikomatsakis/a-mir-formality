@@ -407,6 +407,13 @@ judgment_fn! {
         )
 
         (
+            (let expr = Expr::bin_op(lhs, BinOpKind::BitAnd, rhs))
+            (borrow_check_expr(env, assumptions, state, expr, places_live_on_exit) => (ty, state))
+            ---- ("bitwise and")
+            (borrow_check_expr(env, assumptions, state, Expr::BitAnd { lhs, rhs }, places_live_on_exit) => (ty, state))
+        )
+
+        (
             // Borrow-check and type-check the RHS value expression
             (borrow_check_expr(
                 env,

@@ -256,6 +256,13 @@ judgment_fn! {
         )
 
         (
+            (let expr = Expr::bin_op(lhs, BinOpKind::BitAnd, rhs))
+            (codegen_expr_into(global, cfn, scope, target, expr) => (code, global, cfn))
+            ---- ("bitwise and")
+            (codegen_expr_into(global, cfn, scope, target, Expr::BitAnd { lhs, rhs }) => (code, global, cfn))
+        )
+
+        (
             (let code = cfn.fresh_code_block())
             ---- ("literal")
             (codegen_expr_into(global, cfn, scope, target, literal@Literal { value: _ , ty: _ }) => (

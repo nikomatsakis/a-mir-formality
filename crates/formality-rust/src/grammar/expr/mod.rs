@@ -187,6 +187,7 @@ pub enum Expr {
     #[reject(Expr::AssignOp { .. }, _)]
     #[reject(Expr::BitOr { .. }, _)]
     #[reject(Expr::BitXor { .. }, _)]
+    #[reject(Expr::BitAnd { .. }, _)]
     #[reject(Expr::BinOp { .. }, _)]
     #[reject(Expr::Mul { .. }, _)]
     Call { callee: Arc<Expr>, args: Vec<Expr> },
@@ -245,11 +246,21 @@ pub enum Expr {
     #[precedence(2)]
     BitXor { lhs: Arc<Expr>, rhs: Arc<Expr> },
 
-    #[grammar($lhs $op $rhs)]
+    /// `lhs & rhs`
+    ///
+    /// Bitwise AND of two integers. Binds more tightly than XOR but more
+    /// loosely than the arithmetic operators, so `a ^ b & c + d` means
+    /// `a ^ (b & (c + d))`.
+    #[grammar($lhs & $rhs)]
     #[precedence(3)]
+    BitAnd { lhs: Arc<Expr>, rhs: Arc<Expr> },
+
+    #[grammar($lhs $op $rhs)]
+    #[precedence(4)]
     #[reject(_, BinOpKind::Mul, _)]
     #[reject(_, BinOpKind::BitOr, _)]
     #[reject(_, BinOpKind::BitXor, _)]
+    #[reject(_, BinOpKind::BitAnd, _)]
     BinOp {
         lhs: Arc<Expr>,
         op: BinOpKind,
@@ -258,7 +269,7 @@ pub enum Expr {
 
     // Multiplication comes before addition.
     #[grammar($lhs * $rhs)]
-    #[precedence(4)]
+    #[precedence(5)]
     Mul { lhs: Arc<Expr>, rhs: Arc<Expr> },
 }
 
@@ -364,6 +375,8 @@ pub enum BinOpKind {
     BitOr,
     #[grammar(^)]
     BitXor,
+    #[grammar(&)]
+    BitAnd,
 }
 
 impl BinOpKind {
@@ -374,6 +387,7 @@ impl BinOpKind {
             BinOpKind::Mul => "*",
             BinOpKind::BitOr => "|",
             BinOpKind::BitXor => "^",
+            BinOpKind::BitAnd => "&",
         }
     }
 }
