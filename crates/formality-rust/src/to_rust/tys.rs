@@ -17,8 +17,16 @@ pub fn lower_generic_arg(ctx: &mut Context, parameter: &Parameter) -> Fallible<s
 
 pub fn lower_const(ctx: &mut Context, konst: &Const) -> Fallible<syntax::ConstExpr> {
     match konst {
-        Const::RigidValue(RigidConstData { name, values, .. }) => match name {
+        Const::RigidValue(RigidConstData {
+            name,
+            parameters,
+            values,
+        }) => match name {
             RigidName::Tuple(arity) => {
+                anyhow::ensure!(
+                    parameters.is_empty(),
+                    "tuple const has unexpected parameters"
+                );
                 if *arity != values.len() {
                     anyhow::bail!(
                         "tuple const value has arity {arity} but {} value(s)",
