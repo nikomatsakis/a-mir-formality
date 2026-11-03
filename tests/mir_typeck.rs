@@ -1584,6 +1584,122 @@ fn test_bitor_boolean_operands() {
             scalar = bool"#]])
 }
 
+/// AND-ing integers of different types should fail.
+#[test]
+fn test_bitand_mismatched_int_types() {
+    FormalityTest::new(crates![crate Foo {
+        fn foo() -> () {
+            let x: i32 = 3_i32 & 4_u32;
+        }
+    }])
+    .rustc_err(expect_test::expect![[r#"
+        error[E0308]: mismatched types
+         --> lib.rs
+          |
+        2 |     let mut x: i32 = 3_i32 & 4_u32;
+          |                              ^^^^^ expected `i32`, found `u32`
+
+        error[E0277]: no implementation for `i32 & u32`
+           --> lib.rs
+            |
+          2 |     let mut x: i32 = 3_i32 & 4_u32;
+            |                            ^ no implementation for `i32 & u32`
+            |
+            = help: the trait `BitAnd<u32>` is not implemented for `i32`
+        help: the following other types implement trait `BitAnd<Rhs>`
+           --> bit.rs
+            |
+        174 |         impl const BitAnd for $t {
+            |         ^^^^^^^^^^^^^^^^^^^^^^^^ `i32` implements `BitAnd`
+        ...
+        187 | bitand_impl! { bool usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 }
+            | ------------------------------------------------------------------------- in this macro invocation
+            |
+           ::: internal_macros.rs
+            |
+         22 |         impl const $imp<$u> for &$t {
+            |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `&i32` implements `BitAnd<i32>`
+        ...
+         33 |         impl const $imp<&$u> for $t {
+            |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `i32` implements `BitAnd<&i32>`
+        ...
+         44 |         impl const $imp<&$u> for &$t {
+            |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `&i32` implements `BitAnd`
+            = note: this error originates in the macro `bitand_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+        Some errors have detailed explanations: E0277, E0308.
+        For more information about an error, try `rustc --explain E0277`.
+        error: could not compile `Foo` (lib) due to 2 previous errors
+    "#]])
+    .err(expect_test::expect![[r#"
+        crates/formality-rust/src/prove/prove_normalize.rs:22:1: no applicable rules for prove_normalize { p: u32, assumptions: {}, env: Env { variables: [], bias: Soundness, pending: [], allow_pending_outlives: true } }
+
+        crates/formality-rust/src/prove/prove_normalize.rs:22:1: no applicable rules for prove_normalize { p: i32, assumptions: {}, env: Env { variables: [], bias: Soundness, pending: [], allow_pending_outlives: true } }"#]])
+}
+
+/// Compound AND requires matching integer types too.
+#[test]
+fn test_bitand_assignment_mismatched_int_types() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            let x: u32 = 12_u32;
+            x &= 3_i32;
+        }
+    }])
+    .rustc_err(expect_test::expect![[r#"
+        error[E0308]: mismatched types
+         --> lib.rs
+          |
+        3 |     x &= 3_i32;
+          |          ^^^^^ expected `u32`, found `i32`
+
+        error[E0277]: no implementation for `u32 &= i32`
+           --> lib.rs
+            |
+          3 |     x &= 3_i32;
+            |       ^^ no implementation for `u32 &= i32`
+            |
+            = help: the trait `BitAndAssign<i32>` is not implemented for `u32`
+        help: `u32` implements trait `BitAndAssign<Rhs>`
+           --> bit.rs
+            |
+        746 |         impl const BitAndAssign for $t {
+            |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `BitAndAssign`
+        ...
+        757 | bitand_assign_impl! { bool usize u8 u16 u32 u64 u128 isize i8 i16 i32 i64 i128 }
+            | -------------------------------------------------------------------------------- in this macro invocation
+            |
+           ::: internal_macros.rs
+            |
+         61 |         impl const $imp<&$u> for $t {
+            |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `BitAndAssign<&u32>`
+            = note: this error originates in the macro `bitand_assign_impl` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+        Some errors have detailed explanations: E0277, E0308.
+        For more information about an error, try `rustc --explain E0277`.
+        error: could not compile `Foo` (lib) due to 2 previous errors
+    "#]])
+    .err(expect_test::expect![[r#"
+        crates/formality-rust/src/prove/prove_normalize.rs:22:1: no applicable rules for prove_normalize { p: i32, assumptions: {}, env: Env { variables: [], bias: Soundness, pending: [], allow_pending_outlives: true } }
+
+        crates/formality-rust/src/prove/prove_normalize.rs:22:1: no applicable rules for prove_normalize { p: u32, assumptions: {}, env: Env { variables: [], bias: Soundness, pending: [], allow_pending_outlives: true } }"#]])
+}
+
+/// Formality only models `&` on integers so far, but Rust also implements it for `bool`.
+#[test]
+fn test_bitand_boolean_operands() {
+    FormalityTest::new(crates![crate Foo {
+        fn foo() -> () {
+            let x: bool = true & false;
+        }
+    }])
+    .rustc_ok() // rustc implements `BitAnd` for `bool`
+    .err(expect_test::expect![[r#"
+        the rule "binop" at (nll.rs) failed because
+          condition evaluated to false: `scalar.is_int()`
+            scalar = bool"#]])
+}
+
 /// A generic function named without being called still
 /// needs its where-clauses to hold. `S` does not implement `Marker`.
 #[test]
