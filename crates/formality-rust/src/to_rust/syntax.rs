@@ -231,6 +231,7 @@ pub enum ConstExpr {
     },
     /// A tuple value, e.g. `(1_u32, true)`.
     Tuple(Vec<ConstExpr>),
+    Block(Block),
 }
 
 impl Display for ConstExpr {
@@ -251,6 +252,16 @@ impl Display for ConstExpr {
                     f.write_str(",")?;
                 }
                 f.write_str(")")
+            }
+            ConstExpr::Block(block) => {
+                // Labeled blocks need extra braces to be valid const expressions
+                if block.label.is_some() {
+                    f.write_char('{')?;
+                    block.fmt_pretty(f, 0)?;
+                    f.write_char('}')
+                } else {
+                    block.fmt_pretty(f, 0)
+                }
             }
         }
     }
