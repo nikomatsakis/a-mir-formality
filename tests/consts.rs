@@ -167,25 +167,80 @@ fn const_parameter_bounds_translate_to_rust() {
 }
 
 #[test]
-fn const_block_minimal_value() {
-    // Test that const blocks can be used as const arguments
-    // The lowering machinery is now implemented in lower_const
-    // Full support for value-producing const blocks in trait bounds
-    // would require type checker changes to infer block return types
-    // For now, we verify the lowering works via type checking
-    FormalityTest::new(crates![crate Foo {
-        trait Foo<const C> where type_of_const C is usize {}
-    }])
-    .skip_execute()
-    .ok()
+fn const_block_with_statements_is_well_formed() {
+    assert!(a_mir_formality::test_where_clause(
+        "[crate Foo {}]",
+        "{} => { @wf({ let x: u32 = 1_u32; }) }",
+    )
+    .is_proven());
 }
 
 #[test]
-fn const_block_with_const_param() {
-    // Test that const parameters can be used in trait bounds
+fn const_block_with_ill_typed_initializer_is_rejected() {
+    assert!(!a_mir_formality::test_where_clause(
+        "[crate Foo {}]",
+        "{} => { @wf({ let x: u32 = true; }) }",
+    )
+    .is_proven());
+}
+
+#[test]
+fn empty_const_block_argument_executes() {
     FormalityTest::new(crates![crate Foo {
-        trait Foo<const C> where type_of_const C is usize {}
+        #![feature(adt_const_params)]
+        fn value<const C>() -> u32 where type_of_const C is () { return 7_u32; }
+        fn main() -> () { println!(value::<{}>()); }
     }])
-    .skip_execute()
-    .ok()
+    .rustc_ok()
+    .expect_output("7\n")
+    .ok();
+}
+
+#[test]
+fn statement_const_block_argument_executes() {
+    FormalityTest::new(crates![crate Foo {
+        #![feature(adt_const_params)]
+        fn value<const C>() -> u32 where type_of_const C is () { return 8_u32; }
+        fn main() -> () { println!(value::<{ let x: u32 = 1_u32; }>()); }
+    }])
+    .rustc_ok()
+    .expect_output("8\n")
+    .ok();
+}
+
+#[test]
+fn labeled_const_block_argument_executes() {
+    FormalityTest::new(crates![crate Foo {
+        #![feature(adt_const_params)]
+        fn value<const C>() -> u32 where type_of_const C is () { return 9_u32; }
+        fn main() -> () { println!(value::<'done: { break 'done; }>()); }
+    }])
+    .rustc_ok()
+    .expect_output("9\n")
+    .ok();
+}
+
+#[test]
+fn ill_typed_const_block_argument_is_rejected() {
+    FormalityTest::new(crates![crate Foo {
+        #![feature(adt_const_params)]
+        fn value<const C>() -> u32 where type_of_const C is () { return 7_u32; }
+        fn main() -> () { println!(value::<{ let x: u32 = true; }>()); }
+    }])
+    .rustc_err(expect_test::expect![[r#"
+        error[E0308]: mismatched types
+          --> lib.rs
+           |
+        10 |             let mut x: u32 = true;
+           |                        ---   ^^^^ expected `u32`, found `bool`
+           |                        |
+           |                        expected due to this
+
+        For more information about this error, try `rustc --explain E0308`.
+        error: could not compile `Foo` (lib) due to 1 previous error
+    "#]])
+    .err(expect_test::expect![[r#"
+        crates/formality-rust/src/prove/prove_normalize.rs:22:1: no applicable rules for prove_normalize { p: bool, assumptions: {}, env: Env { variables: [], bias: Soundness, pending: [], allow_pending_outlives: true } }
+
+        crates/formality-rust/src/prove/prove_normalize.rs:22:1: no applicable rules for prove_normalize { p: u32, assumptions: {}, env: Env { variables: [], bias: Soundness, pending: [], allow_pending_outlives: true } }"#]]);
 }
