@@ -15,6 +15,7 @@ expect-test = "1.4.0"
 formality-macros = { version = "0.2.0", path = "crates/formality-macros" }
 formality-core = { version = "0.2.0", path = "crates/formality-core" }
 tracing = "0.1.40"
+formality-lint = { path = "crates/formality-lint" }
 
 
 [dependencies]
@@ -34,5 +35,6 @@ members = [
     "crates/formality-mdbook",
     "crates/formality-mdbook-skills",
     "crates/formality-coverage",
+    "crates/formality-lint",
     "crates/minirust-rs",
 ]
