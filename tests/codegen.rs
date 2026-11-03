@@ -1285,3 +1285,165 @@ fn bitwise_xor_128_bit_high_bits() {
     .expect_output("170141183460469231731687303715884105727\n170141183460469231731687303715884105729\n170141183460469231731687303715884105727\n")
     .ok();
 }
+
+// Regression tests for #532: querying an expression's type can issue loans.
+#[test]
+fn borrow_expression_direct_arguments() {
+    FormalityTest::new(crates![crate test {
+        fn take<'a, 'b>(shared: &'a u32, unique: &'b mut u32) -> () {
+            println!(1_u32);
+        }
+        fn main() -> () {
+            let x: u32 = 1_u32;
+            let y: u32 = 2_u32;
+            exists<'a, 'b> { take::<'a, 'b>(&'a x, &'b mut y); }
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n")
+    .ok();
+}
+
+#[test]
+fn borrow_expression_argument_temporary() {
+    FormalityTest::new(crates![crate test {
+        fn take<'a>(r: &'a u32) -> u32 { return 7_u32; }
+        fn main() -> () {
+            let x: u32 = 1_u32;
+            exists<'a> {
+                // The destination type is known; the argument still needs a temporary.
+                let result: u32 = take::<'a>(&'a x);
+                println!(result);
+            }
+        }
+    }])
+    .rustc_ok()
+    .expect_output("7\n")
+    .ok();
+}
+
+#[test]
+fn borrow_expression_discarded_and_assigned() {
+    FormalityTest::new(crates![crate test {
+        fn main() -> () {
+            let x: u32 = 1_u32;
+            let y: u32 = 2_u32;
+            exists<'a> {
+                &'a x;
+                &'a mut y;
+                let r: &'a u32 = &'a x;
+                r = &'a y;
+            }
+            println!(y);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("2\n")
+    .ok();
+}
+
+#[test]
+fn borrow_expression_nested_call() {
+    FormalityTest::new(crates![crate test {
+        fn identity<'a>(r: &'a u32) -> &'a u32 { return r; }
+        fn take<'a>(r: &'a u32) -> () { println!(3_u32); }
+        fn main() -> () {
+            let x: u32 = 1_u32;
+            exists<'a> { take::<'a>(identity::<'a>(&'a x)); }
+        }
+    }])
+    .rustc_ok()
+    .expect_output("3\n")
+    .ok();
+}
+
+#[test]
+fn borrow_expression_in_generic_function() {
+    FormalityTest::new(crates![crate test {
+        fn take<'b>(s: &'b u32) -> () { println!(4_u32); }
+        fn borrow<'a>(r: &'a u32) -> () {
+            let saved: &'a u32 = r;
+            let value: u32 = 2_u32;
+            exists<'b> { take::<'b>(&'b value); }
+        }
+        fn main() -> () {
+            let value: u32 = 1_u32;
+            exists<'a> { borrow::<'a>(&'a value); }
+        }
+    }])
+    .rustc_ok()
+    .expect_output("4\n")
+    .ok();
+}
+
+#[test]
+fn borrow_expression_shared_reborrow() {
+    let program = crates![crate test {
+        fn read<'a>(r: &'a u32) -> u32 { return *r; }
+        fn main() -> () {
+            let value: u32 = 7_u32;
+            exists<'a, 'b> {
+                let r: &'a u32 = &'a value;
+                println!(read::<'b>(&'b *r));
+            }
+        }
+    }];
+    FormalityTest::new(program)
+        .rustc_ok()
+        .expect_output("7\n")
+        .borrowck_ok();
+}
+
+#[test]
+fn borrow_expression_mutable_reborrow() {
+    let program = crates![crate test {
+        fn update<'a>(r: &'a mut u32) -> () { *r = 9_u32; }
+        fn main() -> () {
+            let value: u32 = 7_u32;
+            exists<'a, 'b> {
+                let r: &'a mut u32 = &'a mut value;
+                update::<'b>(&'b mut *r);
+                println!(*r);
+            }
+            println!(value);
+        }
+    }];
+    FormalityTest::new(program)
+        .rustc_ok()
+        .expect_output("9\n9\n")
+        .borrowck_ok();
+}
+
+// The model has no static storage with which to call these functions. Check
+// their bodies in every borrowck mode and rustc, but do not claim execution or
+// codegen coverage for the static loans. The runnable tests above cover erased
+// reborrows produced when codegen instantiates `exists` lifetimes.
+#[test]
+fn borrow_expression_static_shared_reborrow() {
+    FormalityTest::new(crates![crate test {
+        fn shorten<'a>(r: &'static u32) -> &'a u32 {
+            return &'a *r;
+        }
+        fn preserve(r: &'static u32) -> &'static u32 {
+            return &'static *r;
+        }
+    }])
+    .rustc_ok()
+    .skip_execute()
+    .borrowck_ok();
+}
+
+#[test]
+fn borrow_expression_static_mutable_reborrow() {
+    FormalityTest::new(crates![crate test {
+        fn shorten<'a>(r: &'static mut u32) -> &'a mut u32 {
+            return &'a mut *r;
+        }
+        fn preserve(r: &'static mut u32) -> &'static mut u32 {
+            return &'static mut *r;
+        }
+    }])
+    .rustc_ok()
+    .skip_execute()
+    .borrowck_ok();
+}

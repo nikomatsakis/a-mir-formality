@@ -21,8 +21,6 @@ fn overwrite_before_later_read() {
     }])
     .rustc_ok()
     .expect_output("1\n")
-    // FIXME 532: Remove skip_execute once codegen handles borrow-producing expressions.
-    .skip_execute()
     .borrowck_ok();
 }
 
