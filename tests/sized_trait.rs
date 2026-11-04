@@ -283,7 +283,6 @@ fn alias_is_sized_if_normalized_type_is() {
 
 #[test]
 fn projection_non_final_field_with_sized_bound_is_accepted() {
-    // The solver ignores bounds on associated types, so `type A: [Sized]` wouldn't help.
     FormalityTest::new(crates![crate Foo {
         trait Tr { type A: []; }
         struct S<T> where T: Tr, <T as Tr>::A: Sized { a: <T as Tr>::A, b: u32 }
@@ -471,34 +470,26 @@ fn call_requires_sized_struct_argument() {
           expression evaluated to an empty collection: `decls.trait_invariants()`"#]]);
 }
 
-// FIXME #540: use the associated-type Sized bound; remove should_panic when fixed.
 #[test]
-#[should_panic(expected = "prove_sized { ty: <!ty_0 as Tr>::A")]
 fn associated_sized_bound_allows_nonfinal_struct_field() {
-    let program = crates![crate Foo {
+    FormalityTest::new(crates![crate Foo {
         trait Tr { type A: [Sized]; }
         struct S<T> where T: Tr { first: <T as Tr>::A, last: u32 }
         fn main() -> () {}
-    }];
-    // Check rustc before the expected formality failure.
-    let (ok, stderr) = formality_rust::to_rust::test_util::run_rustc(&program);
-    assert!(ok, "{stderr}");
-    FormalityTest::new(program).rustc_ok().ok();
+    }])
+    .rustc_ok()
+    .ok();
 }
 
-// FIXME #540: use the associated-type Sized bound; remove should_panic when fixed.
 #[test]
-#[should_panic(expected = "prove_sized { ty: <!ty_0 as Tr>::A")]
 fn associated_sized_bound_allows_enum_field() {
-    let program = crates![crate Foo {
+    FormalityTest::new(crates![crate Foo {
         trait Tr { type A: [Sized]; }
         enum E<T> where T: Tr { Some { value: <T as Tr>::A }, None {} }
         fn main() -> () {}
-    }];
-    // Check rustc before the expected formality failure.
-    let (ok, stderr) = formality_rust::to_rust::test_util::run_rustc(&program);
-    assert!(ok, "{stderr}");
-    FormalityTest::new(program).rustc_ok().ok();
+    }])
+    .rustc_ok()
+    .ok();
 }
 
 #[test]
