@@ -627,8 +627,8 @@ impl CodegenFn {
         Ok((code, cfn))
     }
 
-    /// Add checks before `%` that abort where Rust would panic: a zero divisor,
-    /// or `MIN % -1` for signed types. MiniRust treats these as UB.
+    /// Add checks before `/` and `%` that abort where Rust would panic: a zero
+    /// divisor, or `MIN / -1` for signed types. MiniRust treats these as UB.
     pub(super) fn check_binop_operands(
         &self,
         code: &CodeBlock,
@@ -637,11 +637,11 @@ impl CodegenFn {
         left: MiniRustValue,
         right: MiniRustValue,
     ) -> Fallible<(CodeBlock, Self)> {
-        if !matches!(op, BinOpKind::Rem) {
+        if !matches!(op, BinOpKind::Div | BinOpKind::Rem) {
             return Ok((code.clone(), self.clone()));
         }
         let lang::Type::Int(int_ty) = self.minirust_ty(ty)? else {
-            anyhow::bail!("remainder of non-integer type {ty:?}");
+            anyhow::bail!("`/` or `%` on non-integer type {ty:?}");
         };
         let (code, cfn) = self.abort_if_all_eq(code, &[(right, Int::ZERO)]);
         if matches!(int_ty.signed, Signedness::Unsigned) {
