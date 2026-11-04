@@ -394,6 +394,7 @@ pub(super) fn binop(op: &BinOpKind, left: MiniRustValue, right: MiniRustValue) -
         BinOpKind::Add => lang::BinOp::Int(lang::IntBinOp::Add),
         BinOpKind::Sub => lang::BinOp::Int(lang::IntBinOp::Sub),
         BinOpKind::Mul => lang::BinOp::Int(lang::IntBinOp::Mul),
+        BinOpKind::Rem => lang::BinOp::Int(lang::IntBinOp::Rem),
         BinOpKind::BitOr => lang::BinOp::Int(lang::IntBinOp::BitOr),
         BinOpKind::BitXor => lang::BinOp::Int(lang::IntBinOp::BitXor),
         BinOpKind::BitAnd => lang::BinOp::Int(lang::IntBinOp::BitAnd),

@@ -1668,3 +1668,172 @@ fn bitwise_and_reuses_copy_referent() {
     .expect_output("12\n4\n")
     .ok();
 }
+
+#[test]
+fn integer_remainder() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(7_i32 % 3_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n")
+    .ok();
+}
+
+#[test]
+fn integer_remainder_negative_operands() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(-7_i32 % 3_i32);
+            println!(7_i32 % -3_i32);
+            println!(-7_i32 % -3_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("-1\n1\n-1\n")
+    .ok();
+}
+
+#[test]
+fn integer_remainder_unsigned() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(13_u32 % 3_u32);
+            println!(2_u32 % 7_u32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n2\n")
+    .ok();
+}
+
+#[test]
+fn remainder_before_addition() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(10_i32 + 7_i32 % 4_i32);
+            println!(7_i32 % 4_i32 + 10_i32);
+            println!(20_i32 - 7_i32 % 4_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("13\n13\n17\n")
+    .ok();
+}
+
+#[test]
+fn remainder_runs_left_to_right() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(10_i32 % 4_i32 % 3_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("2\n")
+    .ok();
+}
+
+#[test]
+fn remainder_with_multiplication() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(3_i32 * 7_i32 % 4_i32);
+            println!(7_i32 % 4_i32 * 3_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n9\n")
+    .ok();
+}
+
+#[test]
+fn remainder_with_parentheses() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(10_i32 % (4_i32 % 3_i32));
+            println!((10_i32 + 7_i32) % 4_i32);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("0\n1\n")
+    .ok();
+}
+
+#[test]
+fn remainder_runs_calls_left_to_right() {
+    FormalityTest::new(crates![crate Foo {
+        fn left() -> i32 { println!(1_i32); return 7_i32; }
+        fn right() -> i32 { println!(2_i32); return 3_i32; }
+        fn main() -> () { println!(left() % right()); }
+    }])
+    .rustc_ok()
+    .expect_output("1\n2\n1\n")
+    .ok();
+}
+
+// Rust panics on these; MiniRust reports them as undefined behavior.
+// FIXME #543: assert a defined abort instead of accepting the MiniRust UB diagnostic.
+#[test]
+#[should_panic(expected = "modulus of remainder is zero")]
+fn integer_remainder_by_zero() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(7_i32 % 0_i32);
+        }
+    }])
+    .ok();
+}
+
+// FIXME #543: assert a defined abort instead of accepting the MiniRust UB diagnostic.
+#[test]
+#[should_panic(expected = "overflow in remainder")]
+fn integer_remainder_overflow() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(-2147483648_i32 % -1_i32);
+        }
+    }])
+    .ok();
+}
+
+#[test]
+fn compound_remainder_field_reads_after_rhs() {
+    FormalityTest::new(crates![crate Foo {
+        struct Pair { left: u32, right: u32 }
+        fn update<'a>(p: &'a mut Pair) -> u32 {
+            (*p).left = 14_u32;
+            return 5_u32;
+        }
+        fn main() -> () {
+            let p: Pair = Pair { left: 8_u32, right: 16_u32 };
+            exists<'a> {
+                let r: &'a mut Pair = &'a mut p;
+                p.left %= update::<'a>(r);
+            }
+            println!(p.left);
+            println!(p.right);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("4\n16\n")
+    .borrowck_ok();
+}
+
+#[test]
+fn remainder_width_boundaries_and_last_loan_use() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(340282366920938463463374607431768211455_u128 % 2_u128);
+            println!(-170141183460469231731687303715884105728_i128 % 3_i128);
+            let x: u32 = 7_u32;
+            exists<'a> {
+                let r: &'a mut u32 = &'a mut x;
+                println!(*r % x);
+            }
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n-2\n0\n")
+    .borrowck_ok();
+}
