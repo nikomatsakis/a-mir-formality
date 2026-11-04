@@ -190,6 +190,7 @@ pub enum Expr {
     #[reject(Expr::BitAnd { .. }, _)]
     #[reject(Expr::BinOp { .. }, _)]
     #[reject(Expr::Mul { .. }, _)]
+    #[reject(Expr::Div { .. }, _)]
     #[reject(Expr::Rem { .. }, _)]
     Call { callee: Arc<Expr>, args: Vec<Expr> },
 
@@ -259,6 +260,7 @@ pub enum Expr {
     #[grammar($lhs $op $rhs)]
     #[precedence(4)]
     #[reject(_, BinOpKind::Mul, _)]
+    #[reject(_, BinOpKind::Div, _)]
     #[reject(_, BinOpKind::Rem, _)]
     #[reject(_, BinOpKind::BitOr, _)]
     #[reject(_, BinOpKind::BitXor, _)]
@@ -273,6 +275,11 @@ pub enum Expr {
     #[grammar($lhs * $rhs)]
     #[precedence(5)]
     Mul { lhs: Arc<Expr>, rhs: Arc<Expr> },
+
+    // Division comes before addition and subtraction.
+    #[grammar($lhs / $rhs)]
+    #[precedence(5)]
+    Div { lhs: Arc<Expr>, rhs: Arc<Expr> },
 
     // Remainder has the same precedence as multiplication.
     #[grammar($lhs % $rhs)]
@@ -378,6 +385,8 @@ pub enum BinOpKind {
     Sub,
     #[grammar(*)]
     Mul,
+    #[grammar(/)]
+    Div,
     #[grammar(%)]
     Rem,
     #[grammar(|)]
@@ -394,6 +403,7 @@ impl BinOpKind {
             BinOpKind::Add => "+",
             BinOpKind::Sub => "-",
             BinOpKind::Mul => "*",
+            BinOpKind::Div => "/",
             BinOpKind::Rem => "%",
             BinOpKind::BitOr => "|",
             BinOpKind::BitXor => "^",
