@@ -1963,6 +1963,7 @@ fn division_runs_calls_left_to_right() {
 }
 
 // MiniRust reports invalid division as an execution error.
+// FIXME #543: assert a defined abort instead of accepting the MiniRust UB diagnostic.
 #[test]
 #[should_panic(expected = "division by zero")]
 fn integer_division_by_zero() {
@@ -1974,6 +1975,7 @@ fn integer_division_by_zero() {
     .ok();
 }
 
+// FIXME #543: assert a defined abort instead of accepting the MiniRust UB diagnostic.
 #[test]
 #[should_panic(expected = "overflow in division")]
 fn integer_division_overflow() {
