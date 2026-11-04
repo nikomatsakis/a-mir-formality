@@ -1773,6 +1773,7 @@ fn remainder_runs_calls_left_to_right() {
 }
 
 // Rust panics on these; MiniRust reports them as undefined behavior.
+// FIXME #543: assert a defined abort instead of accepting the MiniRust UB diagnostic.
 #[test]
 #[should_panic(expected = "modulus of remainder is zero")]
 fn integer_remainder_by_zero() {
@@ -1784,6 +1785,7 @@ fn integer_remainder_by_zero() {
     .ok();
 }
 
+// FIXME #543: assert a defined abort instead of accepting the MiniRust UB diagnostic.
 #[test]
 #[should_panic(expected = "overflow in remainder")]
 fn integer_remainder_overflow() {
@@ -1793,4 +1795,45 @@ fn integer_remainder_overflow() {
         }
     }])
     .ok();
+}
+
+#[test]
+fn compound_remainder_field_reads_after_rhs() {
+    FormalityTest::new(crates![crate Foo {
+        struct Pair { left: u32, right: u32 }
+        fn update<'a>(p: &'a mut Pair) -> u32 {
+            (*p).left = 14_u32;
+            return 5_u32;
+        }
+        fn main() -> () {
+            let p: Pair = Pair { left: 8_u32, right: 16_u32 };
+            exists<'a> {
+                let r: &'a mut Pair = &'a mut p;
+                p.left %= update::<'a>(r);
+            }
+            println!(p.left);
+            println!(p.right);
+        }
+    }])
+    .rustc_ok()
+    .expect_output("4\n16\n")
+    .borrowck_ok();
+}
+
+#[test]
+fn remainder_width_boundaries_and_last_loan_use() {
+    FormalityTest::new(crates![crate Foo {
+        fn main() -> () {
+            println!(340282366920938463463374607431768211455_u128 % 2_u128);
+            println!(-170141183460469231731687303715884105728_i128 % 3_i128);
+            let x: u32 = 7_u32;
+            exists<'a> {
+                let r: &'a mut u32 = &'a mut x;
+                println!(*r % x);
+            }
+        }
+    }])
+    .rustc_ok()
+    .expect_output("1\n-2\n0\n")
+    .borrowck_ok();
 }
